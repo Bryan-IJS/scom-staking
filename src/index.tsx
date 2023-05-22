@@ -496,9 +496,10 @@ export default class ScomStaking extends Module {
 			this.stakingResult.visible = true;
 		}, 100);
 		const data = this.getAttribute('data', true);
+		const commissions = this.getAttribute('commissions', true, []);
+		await this.setData({ commissions, ...data });
 		if (data) {
 			setCurrentChainId(data.chainId);
-			await this.setData(data);
 		} else {
 			this.renderEmpty();
 		}
@@ -576,7 +577,6 @@ export default class ScomStaking extends Module {
 		for (let idx = 0; idx < campaigns.length; idx++) {
 			const campaign = this.campaigns[idx];
 			const _tag = this.tag || {};
-			console.log(isThemeApplied, _tag.customColorCampaign)
 			const colorCampaignText = isThemeApplied ? _tag.customColorCampaign || '#f15e61' : '#f15e61';
 			const colorCampaignBackground = isThemeApplied ? _tag.customColorBackground || '#ffffff26' : '#ffffff26';
 			const colorButton = isThemeApplied ? _tag.customColorButton : undefined;
@@ -763,7 +763,6 @@ export default class ScomStaking extends Module {
 
 			setTimer();
 			this.listActiveTimer.push(setInterval(setTimer, 2000));
-
 			const stakingsElm = await Promise.all(options.map(async (option: any, optionIdx: number) => {
 				const manageStake = new ManageStake();
 				manageStake.id = `manage-stake-${option.address}`;

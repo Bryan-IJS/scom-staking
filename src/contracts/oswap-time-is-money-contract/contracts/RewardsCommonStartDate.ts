@@ -39,6 +39,7 @@ export class RewardsCommonStartDate extends _Contract{
     claim: {
         (options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (options?: TransactionOptions) => Promise<void>;
+        txData: (options?: TransactionOptions) => Promise<string>;
     }
     claimDeadline: {
         (options?: TransactionOptions): Promise<BigNumber>;
@@ -46,6 +47,7 @@ export class RewardsCommonStartDate extends _Contract{
     claimFor: {
         (account:string, options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (account:string, options?: TransactionOptions) => Promise<void>;
+        txData: (account:string, options?: TransactionOptions) => Promise<string>;
     }
     claimSoFar: {
         (param1:string, options?: TransactionOptions): Promise<BigNumber>;
@@ -59,6 +61,7 @@ export class RewardsCommonStartDate extends _Contract{
     putFund: {
         (params: IPutFundParams, options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (params: IPutFundParams, options?: TransactionOptions) => Promise<void>;
+        txData: (params: IPutFundParams, options?: TransactionOptions) => Promise<string>;
     }
     reward: {
         (options?: TransactionOptions): Promise<BigNumber>;
@@ -69,6 +72,7 @@ export class RewardsCommonStartDate extends _Contract{
     takeUnclaimed: {
         (options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (options?: TransactionOptions) => Promise<void>;
+        txData: (options?: TransactionOptions) => Promise<string>;
     }
     timeIsMoney: {
         (options?: TransactionOptions): Promise<string>;
@@ -162,8 +166,13 @@ export class RewardsCommonStartDate extends _Contract{
             let result = await this.call('claim',[],options);
             return;
         }
+        let claim_txData = async (options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('claim',[],options);
+            return result;
+        }
         this.claim = Object.assign(claim_send, {
             call:claim_call
+            , txData:claim_txData
         });
         let claimFor_send = async (account:string, options?: TransactionOptions): Promise<TransactionReceipt> => {
             let result = await this.send('claimFor',[account],options);
@@ -173,8 +182,13 @@ export class RewardsCommonStartDate extends _Contract{
             let result = await this.call('claimFor',[account],options);
             return;
         }
+        let claimFor_txData = async (account:string, options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('claimFor',[account],options);
+            return result;
+        }
         this.claimFor = Object.assign(claimFor_send, {
             call:claimFor_call
+            , txData:claimFor_txData
         });
         let putFundParams = (params: IPutFundParams) => [params.from,this.wallet.utils.toString(params.amount)];
         let putFund_send = async (params: IPutFundParams, options?: TransactionOptions): Promise<TransactionReceipt> => {
@@ -185,8 +199,13 @@ export class RewardsCommonStartDate extends _Contract{
             let result = await this.call('putFund',putFundParams(params),options);
             return;
         }
+        let putFund_txData = async (params: IPutFundParams, options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('putFund',putFundParams(params),options);
+            return result;
+        }
         this.putFund = Object.assign(putFund_send, {
             call:putFund_call
+            , txData:putFund_txData
         });
         let takeUnclaimed_send = async (options?: TransactionOptions): Promise<TransactionReceipt> => {
             let result = await this.send('takeUnclaimed',[],options);
@@ -196,8 +215,13 @@ export class RewardsCommonStartDate extends _Contract{
             let result = await this.call('takeUnclaimed',[],options);
             return;
         }
+        let takeUnclaimed_txData = async (options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('takeUnclaimed',[],options);
+            return result;
+        }
         this.takeUnclaimed = Object.assign(takeUnclaimed_send, {
             call:takeUnclaimed_call
+            , txData:takeUnclaimed_txData
         });
     }
 }

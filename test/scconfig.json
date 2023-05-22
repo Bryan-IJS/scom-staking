@@ -12,12 +12,12 @@
     }
   },
   "dependencies": {
-    "@ijstech/eth-wallet-web3modal": "*",
     "@scom/scom-staking": "*",
     "@ijstech/eth-contract": "*",
     "@ijstech/eth-wallet": "*",
     "@scom/scom-dapp-container": "*",
-    "@scom/scom-token-list": "*"
+    "@scom/scom-token-list": "*",
+    "@scom/scom-network-list": "*"
   },
   "menus": [
     {

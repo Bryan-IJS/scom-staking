@@ -97,6 +97,6 @@ export const getTokenUrl = `${baseUrl}/swap`;
 export const isThemeApplied = false;
 export const isMultiple = false;
 export const maxWidth = '690px';
-export const maxHeight = '321px';
+export const maxHeight = '350px';
 
 export * from './utils';

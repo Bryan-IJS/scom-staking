@@ -3,15 +3,19 @@ import { Contracts as TimeIsMoneyContracts } from "../contracts/oswap-time-is-mo
 import { Contracts } from "../contracts/oswap-openswap-contract/index";
 import { Contracts as UtilsContracts } from "../contracts/oswap-chainlink-contract/index";
 import { Contracts as CrossChainContracts } from "../contracts/oswap-cross-chain-bridge-contract/index";
+import { Contracts as ProxyContracts } from "../contracts/scom-commission-proxy-contract/index";
 import {
   ERC20ApprovalModel,
   IERC20ApprovalEventOptions,
   ITokenObject,
   ISingleStakingCampaign,
   ISingleStaking,
+  ICommissionInfo,
 } from "../global/index";
 import {
   USDPeggedTokenAddressMap,
+  getChainId,
+  getProxyAddress,
   getTokenDecimals
 } from "../store/index";
 import { tokenStore, ToUSDPriceFeedAddressesMap, WETHByChainId, tokenPriceAMMReference } from '@scom/scom-token-list';
@@ -459,6 +463,21 @@ const getVaultRewardCurrentAPR = async (rewardOption: any, vaultObject: any, loc
   return APR;
 }
 
+export const getCurrentCommissions = (commissions: ICommissionInfo[]) => {
+  return (commissions || []).filter(v => v.chainId == getChainId());
+}
+
+export const getCommissionAmount = (commissions: ICommissionInfo[], amount: BigNumber) => {
+  const _commissions = (commissions || []).filter(v => v.chainId == getChainId()).map(v => {
+    return {
+      to: v.walletAddress,
+      amount: amount.times(v.share)
+    }
+  });
+  const commissionsAmount = _commissions.length ? _commissions.map(v => v.amount).reduce((a, b) => a.plus(b)) : new BigNumber(0);
+  return commissionsAmount;
+}
+
 const withdrawToken = async (contractAddress: string, callback?: any) => {
   if (!contractAddress) return;
   try {
@@ -487,14 +506,47 @@ const claimToken = async (contractAddress: string, callback?: any) => {
   }
 }
 
-const lockToken = async (token: ITokenObject, amount: string, contractAddress: string) => {
+const lockToken = async (token: ITokenObject, amount: string, contractAddress: string, commissions: ICommissionInfo[]) => {
   if (!token) return;
   if (!contractAddress) return;
-  let wallet = Wallet.getClientInstance();
-  let decimals = typeof token.decimals === 'object' ? (token.decimals as BigNumber).toNumber() : token.decimals;
-  let tokenAmount = Utils.toDecimals(amount, decimals);
-  let timeIsMoney = new TimeIsMoneyContracts.TimeIsMoney(wallet, contractAddress);
-  let receipt = await timeIsMoney.lock(tokenAmount);
+  const wallet = Wallet.getClientInstance();
+  const decimals = typeof token.decimals === 'object' ? (token.decimals as BigNumber).toNumber() : token.decimals;
+  const tokenAmount = Utils.toDecimals(amount, decimals).dp(0);
+  const timeIsMoney = new TimeIsMoneyContracts.TimeIsMoney(wallet, contractAddress);
+  let receipt;
+  try {
+    const _commissions = (commissions || []).filter(v => v.chainId == getChainId()).map(v => {
+      return {
+        to: v.walletAddress,
+        amount: tokenAmount.times(v.share).dp(0)
+      }
+    });
+    if (_commissions.length) {
+      const proxyAddress = getProxyAddress();
+      const proxy = new ProxyContracts.Proxy(wallet, proxyAddress);
+      const commissionsAmount = _commissions.map(v => v.amount).reduce((a, b) => a.plus(b)).dp(0);
+      const tokensIn = [
+        {
+          token: token.address || Utils.nullAddress,
+          amount: tokenAmount.plus(commissionsAmount),
+          directTransfer: true,
+          commissions: _commissions
+        }
+      ];
+      const txData = await timeIsMoney.lock.txData(tokenAmount);
+      receipt = await proxy.proxyCall({
+        target: contractAddress,
+        tokensIn,
+        data: txData,
+        to: wallet.address,
+        tokensOut: []
+      });
+    } else {
+      receipt = await timeIsMoney.lock(tokenAmount);
+    }
+  } catch (err) {
+    console.log('err', err)
+  }
   return receipt;
 }
 

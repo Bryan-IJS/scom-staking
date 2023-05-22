@@ -1,7 +1,7 @@
-import { moment, Button, Input, Container, HStack, customElements, ControlElement, Module, Label } from '@ijstech/components';
+import { moment, Button, Input, Container, HStack, customElements, ControlElement, Module, Label, Icon } from '@ijstech/components';
 import { BigNumber } from '@ijstech/eth-wallet';
-import { ITokenObject, IERC20ApprovalAction, limitInputNumber } from '../global/index';
-import { isWalletConnected, LockTokenType, setStakingStatus, getLockedTokenObject, getLockedTokenSymbol} from '../store/index';
+import { ITokenObject, IERC20ApprovalAction, limitInputNumber, formatNumber } from '../global/index';
+import { isWalletConnected, LockTokenType, setStakingStatus, getLockedTokenObject, getLockedTokenSymbol, getProxyAddress, getEmbedderCommissionFee} from '../store/index';
 import { tokenStore } from '@scom/scom-token-list';
 import { Result } from '../common/index';
 import {
@@ -13,6 +13,8 @@ import {
   getVaultBalance,
   getApprovalModelAction,
   getStakingTotalLocked,
+  getCurrentCommissions,
+  getCommissionAmount,
 } from '../staking-utils/index';
 import { stakingManageStakeStyle } from './manage-stake.css';
 
@@ -56,6 +58,11 @@ export class ManageStake extends Module {
   private approvalModelAction: IERC20ApprovalAction;
   public onRefresh: any;
 
+  private hStackCommissionInfo: HStack;
+  private lbTotal: Label;
+  private iconCommissionFee: Icon;
+  private contractAddress: string;
+
   constructor(parent?: Container, options?: any) {
     super(parent, options);
   }
@@ -63,11 +70,44 @@ export class ManageStake extends Module {
   setData = (data: any) => {
     this.address = data.address;
     this.stakingInfo = data;
+    this.updateContractAddress();
     this.onSetupPage(isWalletConnected());
   }
 
+  get commissions() {
+    return this.stakingInfo.commissions ?? [];
+  }
+
+  private updateContractAddress = () => {
+    if (getCurrentCommissions(this.commissions).length && this.stakingInfo?.mode === 'Stake') {
+      this.contractAddress = getProxyAddress();
+    } else {
+      this.contractAddress = this.address;
+    }
+    this.updateCommissionInfo();
+  }
+
+  private updateCommissionInfo = () => {
+    if (getCurrentCommissions(this.commissions).length && this.stakingInfo?.mode === 'Stake') {
+      this.hStackCommissionInfo.visible = true;
+      const commissionFee = getEmbedderCommissionFee();
+      this.iconCommissionFee.tooltip.content = `A commission fee of ${new BigNumber(commissionFee).times(100)}% will be applied to the amount you input.`;
+      const amount = new BigNumber(this.inputAmount.value || 0);
+      const commissionAmount = getCommissionAmount(this.commissions, amount);
+      this.lbTotal.caption = `${formatNumber(amount.plus(commissionAmount))} ${this.tokenSymbol || ''}`;
+    } else {
+      this.hStackCommissionInfo.visible = false;
+    }
+  }
+
   getBalance = () => {
-    return this.balance;
+    const balance = new BigNumber(this.balance || 0);
+    const commissionAmount = getCommissionAmount(this.commissions, balance);
+    if (commissionAmount.gt(0)) {
+      const totalFee = balance.plus(commissionAmount).dividedBy(balance);
+      return balance.dividedBy(totalFee);
+    }
+    return balance;
   }
 
   needToBeApproval = () => {
@@ -95,7 +135,12 @@ export class ManageStake extends Module {
 
   private onApproveToken = async () => {
     this.showResultMessage(this.stakingResult, 'warning', `Approve ${this.tokenSymbol}`);
-    this.approvalModelAction.doApproveAction(this.lockedTokenObject, this.inputAmount.value);
+    let amount = new BigNumber(this.inputAmount.value || 0);
+    if (this.stakingInfo?.mode === 'Stake') {
+      const commissionAmount = getCommissionAmount(this.commissions, amount);
+      amount = amount.plus(commissionAmount);
+    }
+    this.approvalModelAction.doApproveAction(this.lockedTokenObject, amount.toFixed());
   }
 
   private onStake = async () => {
@@ -112,14 +157,20 @@ export class ManageStake extends Module {
     if (this.inputAmount.enabled === false) return;
     this.currentMode = CurrentMode.STAKE;
     limitInputNumber(this.inputAmount, this.lockedTokenObject?.decimals || 18);
-    this.approvalModelAction.checkAllowance(this.lockedTokenObject, this.inputAmount.value);
+    const amount = new BigNumber(this.inputAmount.value || 0);
+    const commissionAmount = getCommissionAmount(this.commissions, amount);
+    this.approvalModelAction.checkAllowance(this.lockedTokenObject, amount.plus(commissionAmount).toFixed());
+    this.updateCommissionInfo();
   }
 
   private setMaxBalance = () => {
     this.currentMode = CurrentMode.STAKE;
-    this.inputAmount.value = BigNumber.min(this.availableQty, this.balance, this.perAddressCap).toFixed();
+    this.inputAmount.value = BigNumber.min(this.availableQty, this.getBalance(), this.perAddressCap).toFixed();
     limitInputNumber(this.inputAmount, this.lockedTokenObject?.decimals || 18);
-    this.approvalModelAction.checkAllowance(this.lockedTokenObject, this.inputAmount.value);
+    const amount = new BigNumber(this.inputAmount.value || 0);
+    const commissionAmount = getCommissionAmount(this.commissions, amount);
+    this.approvalModelAction.checkAllowance(this.lockedTokenObject, amount.plus(commissionAmount).toFixed());
+    this.updateCommissionInfo();
   };
 
   private renderStakingInfo = async (info: any) => {
@@ -202,6 +253,7 @@ export class ManageStake extends Module {
       this.lbToken.caption = symbol;
     }
     this.updateEnableInput();
+    this.updateCommissionInfo();
   }
 
   private onSetupPage = async (connected: boolean) => {
@@ -235,18 +287,18 @@ export class ManageStake extends Module {
   }
 
   async initApprovalModelAction() {
-    this.approvalModelAction = getApprovalModelAction(this.address, {
+    this.approvalModelAction = getApprovalModelAction(this.contractAddress, {
       sender: this,
       payAction: async () => {
         this.showResultMessage(this.stakingResult, 'warning', `${this.currentMode === CurrentMode.STAKE ? 'Stake' : 'Unlock'} ${this.tokenSymbol}`);
         if (this.currentMode === CurrentMode.STAKE) {
-          lockToken(this.lockedTokenObject, this.inputAmount.value, this.address);
+          lockToken(this.lockedTokenObject, this.inputAmount.value, this.address, this.commissions);
         } else {
           withdrawToken(this.address);
         }
       },
       onToBeApproved: async (token: ITokenObject) => {
-        if (new BigNumber(this.inputAmount.value).lte(BigNumber.min(this.availableQty, this.balance, this.perAddressCap))) {
+        if (new BigNumber(this.inputAmount.value).lte(BigNumber.min(this.availableQty, this.getBalance(), this.perAddressCap))) {
           this.btnApprove.caption = `Approve ${token.symbol}`;
           this.btnApprove.visible = true;
           this.btnApprove.enabled = true;
@@ -261,13 +313,13 @@ export class ManageStake extends Module {
         const isClosed = moment(this.stakingInfo?.endOfEntryPeriod || 0).diff(moment()) <= 0;
         if (this.currentMode === CurrentMode.STAKE) {
           const amount = new BigNumber(this.inputAmount.value);
-          if (amount.gt(this.balance)) {
+          if (amount.gt(this.getBalance())) {
             this.btnStake.caption = 'Insufficient Balance';
             this.btnStake.enabled = false;
             return;
           }
           this.btnStake.caption = 'Stake';
-          if (amount.isNaN() || amount.lte(0) || amount.gt(BigNumber.min(this.availableQty, this.balance, this.perAddressCap))) {
+          if (amount.isNaN() || amount.lte(0) || amount.gt(BigNumber.min(this.availableQty, this.getBalance(), this.perAddressCap))) {
             this.btnStake.enabled = false;
           } else {
             this.btnStake.enabled = !isClosed;
@@ -331,6 +383,7 @@ export class ManageStake extends Module {
         }
         await this.updateEnableInput();
         this.inputAmount.value = '';
+        this.updateCommissionInfo();
         this.btnStake.enabled = false;
         this.btnUnstake.enabled = this.stakingInfo.mode !== 'Stake' && new BigNumber(this.stakeQty).gt(0);
       },
@@ -419,6 +472,13 @@ export class ManageStake extends Module {
               onClick={() => this.onUnstake()}
             />
           </i-hstack>
+        </i-hstack>
+        <i-hstack id="hStackCommissionInfo" margin={{ top: 10 }} gap={10} verticalAlignment="center">
+          <i-hstack gap={10} verticalAlignment="center">
+            <i-label caption="Total" />
+            <i-icon id="iconCommissionFee" name="question-circle" width={16} height={16} />
+          </i-hstack>
+          <i-label id="lbTotal" margin={{ left: 'auto' }} />
         </i-hstack>
       </i-panel>
     )

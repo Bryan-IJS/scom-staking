@@ -42,6 +42,7 @@ export class TimeIsMoney extends _Contract{
     lock: {
         (amount:number|BigNumber, options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (amount:number|BigNumber, options?: TransactionOptions) => Promise<void>;
+        txData: (amount:number|BigNumber, options?: TransactionOptions) => Promise<string>;
     }
     lockAmount: {
         (param1:string, options?: TransactionOptions): Promise<BigNumber>;
@@ -73,6 +74,7 @@ export class TimeIsMoney extends _Contract{
     withdraw: {
         (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions) => Promise<void>;
+        txData: (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions) => Promise<string>;
     }
     withdrawn: {
         (param1:string, options?: TransactionOptions): Promise<boolean>;
@@ -146,8 +148,13 @@ export class TimeIsMoney extends _Contract{
             let result = await this.call('lock',[this.wallet.utils.toString(amount)],options);
             return;
         }
+        let lock_txData = async (amount:number|BigNumber, options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('lock',[this.wallet.utils.toString(amount)],options);
+            return result;
+        }
         this.lock = Object.assign(lock_send, {
             call:lock_call
+            , txData:lock_txData
         });
         let withdraw_send = async (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions): Promise<TransactionReceipt> => {
             let result = await this.send('withdraw',[allowWithdrawalBeforeRelease],options);
@@ -157,8 +164,13 @@ export class TimeIsMoney extends _Contract{
             let result = await this.call('withdraw',[allowWithdrawalBeforeRelease],options);
             return;
         }
+        let withdraw_txData = async (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('withdraw',[allowWithdrawalBeforeRelease],options);
+            return result;
+        }
         this.withdraw = Object.assign(withdraw_send, {
             call:withdraw_call
+            , txData:withdraw_txData
         });
     }
 }

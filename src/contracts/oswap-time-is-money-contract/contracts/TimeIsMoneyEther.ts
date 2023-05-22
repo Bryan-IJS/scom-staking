@@ -42,6 +42,7 @@ export class TimeIsMoneyEther extends _Contract{
     lock: {
         (options?: number|BigNumber|TransactionOptions): Promise<TransactionReceipt>;
         call: (options?: number|BigNumber|TransactionOptions) => Promise<void>;
+        txData: (options?: number|BigNumber|TransactionOptions) => Promise<string>;
     }
     lockAmount: {
         (param1:string, options?: TransactionOptions): Promise<BigNumber>;
@@ -70,6 +71,7 @@ export class TimeIsMoneyEther extends _Contract{
     withdraw: {
         (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions): Promise<TransactionReceipt>;
         call: (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions) => Promise<void>;
+        txData: (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions) => Promise<string>;
     }
     withdrawn: {
         (param1:string, options?: TransactionOptions): Promise<boolean>;
@@ -138,8 +140,13 @@ export class TimeIsMoneyEther extends _Contract{
             let result = await this.call('lock',[],options);
             return;
         }
+        let lock_txData = async (options?: number|BigNumber|TransactionOptions): Promise<string> => {
+            let result = await this.txData('lock',[],options);
+            return result;
+        }
         this.lock = Object.assign(lock_send, {
             call:lock_call
+            , txData:lock_txData
         });
         let withdraw_send = async (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions): Promise<TransactionReceipt> => {
             let result = await this.send('withdraw',[allowWithdrawalBeforeRelease],options);
@@ -149,8 +156,13 @@ export class TimeIsMoneyEther extends _Contract{
             let result = await this.call('withdraw',[allowWithdrawalBeforeRelease],options);
             return;
         }
+        let withdraw_txData = async (allowWithdrawalBeforeRelease:boolean, options?: TransactionOptions): Promise<string> => {
+            let result = await this.txData('withdraw',[allowWithdrawalBeforeRelease],options);
+            return result;
+        }
         this.withdraw = Object.assign(withdraw_send, {
             call:withdraw_call
+            , txData:withdraw_txData
         });
     }
 }

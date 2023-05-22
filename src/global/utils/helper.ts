@@ -94,7 +94,9 @@ export const formatNumberWithSeparators = (value: number, precision?: number) =>
   if (precision) {
     let outputStr = '';
     if (value >= 1) {
-      outputStr = value.toLocaleString('en-US', { maximumFractionDigits: precision });
+      const unit = Math.pow(10, precision);
+      const rounded = Math.floor(value * unit) / unit;
+      outputStr = rounded.toLocaleString('en-US', { maximumFractionDigits: precision });
     }
     else {
       outputStr = value.toLocaleString('en-US', { maximumSignificantDigits: precision });
