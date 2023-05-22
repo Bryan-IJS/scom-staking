@@ -24,14 +24,21 @@ export default class Module1 extends Module {
                     "showContractLink": true,
                     "stakings":
                     {
-                        "address": "0x03C22D12eb6E5ea3a06F46Fc0e1857438BB7DCae",
+                        "address": "0x502b66fAf0E2Bd91A07378B1859b2943f5F4B784",
                         "lockTokenType": 0,
                         "rewards":
                         {
-                            "address": "0x10B846B7A1807B3610ee94c1b120D9c5E87C148d",
+                            "address": "0x2ccE686D3dC032377E66058Aad9e93b2FA8De8a2",
                             "isCommonStartDate": false,
                         }
                     },
+                    "commissions": [
+                        {
+                            "chainId": 43113,
+                            "walletAddress": '0xA81961100920df22CF98703155029822f2F7f033',
+                            "share": '0.01'
+                        }
+                    ],
                     "networks": [
                         {
                           "chainId": 43113
